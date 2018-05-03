@@ -40,7 +40,7 @@ def readTrafficSigns(rootpath, crop, size, colormode):
         gtFile.close()
     hist_labels = labels
     image_array = np.array(image_array).astype(np.dtype(float))
-    image_array /= 255
+
     print('readTrafficTrainingSigns=Done')
     return images, labels, image_array, hist_labels
 
@@ -143,7 +143,7 @@ def readTrafficTestSigns(rootpath, crop, size):
     labels = [] # corresponding labels
     image_array = []
     hist_labels = []
-    prefix = rootpath + '/'
+    prefix = './GTSRB/Final_Test/Images' + '/'
     gtTestFile = open(prefix + 'GT-final_test.csv')
     gtTestReader = csv.reader(gtTestFile, delimiter=';')
     next(gtTestReader)
@@ -196,7 +196,7 @@ def getHistogram(labels):
 ##########################Running the functions########################################
 
 crop = 'y'  # To crop the data 'y' for yes 'n' for no
-size = 16   # Size of the resized picture size*size pixels
+size = 32   # Size of the resized picture size*size pixels
 colormode = 'RGB' # string: RGB, P -palette mode(only uses a small number of colors), or L - grayscale
 rootpath = './GTSRB/Final_Training/Images'
 test_rootpath = './GTSRB/Final_Test/Images'
@@ -213,92 +213,135 @@ list_to_few, list_to_many = smoothDistribution(labels, min_images, max_images)
 plt.title('Before image manipulation')
 plt.xlabel('Class')
 plt.ylabel('Number of images')
-getHistogram(labels)
+#getHistogram(labels)
 
-
+final_labels = labels
+final_image_array = image_array
 image_array1, labels1 = manipulateImages(image_array, labels, size, list_to_few, list_to_many)
 final_labels = np.concatenate((labels1, labels2))
 final_image_array = np.concatenate((image_array1, image_array2))
 plt.title('After image manipulation')
 plt.xlabel('Class')
 plt.ylabel('Number of images')
-getHistogram(final_labels)
+#getHistogram(final_labels)
 
-plt.title('Test image')
-plt.imshow(final_image_array[11])
-plt.show()
+#plt.title('Test image')
+#plt.imshow(final_image_array[11])
+#plt.show()
 s_labels, s_image_array = shuffle(final_labels, final_image_array)
-
 
 s_labels = np.array(s_labels)
 s_labels = np_utils.to_categorical(s_labels, 43) # Makes binary class-matrix
 print('Total number of images:', len(s_labels))
 
+
+s_image_array = np.array(s_image_array).astype(np.dtype(float))
+s_image_array /= 255
+
+
+
+[test_images, test_labels, test_image_array, test_hist_label] = readTrafficTestSigns(rootpath, crop, size)
+
+#s_image_array = s_image_array[1:4000]
+#s_labels = s_labels[1:4000]
+#test_image_array = test_image_array[1:400]
+#test_labels = test_labels[1:400]
+
+
 ########## KERAS CODE ##################
 
-# input_dim = (size, size, 3)
-# import keras
-# from keras.models import Sequential
-# from keras.layers.core import Dense, Dropout, Activation, Flatten
-# from keras.layers.convolutional import Conv2D
-# from keras.layers.pooling import MaxPooling2D
-# from keras.utils import np_utils
-# from keras.layers.normalization import BatchNormalization
-#
-# model = Sequential()
-#
-# model.add(Conv2D(16, kernel_size=(5, 5), activation='relu', input_shape=input_dim, padding='same'))
-# model.add(BatchNormalization(axis=1))
-# model.add(Conv2D(32, kernel_size=(5, 5), activation='relu', padding='same'))
-# model.add(BatchNormalization(axis=1))
-#
-# model.add(MaxPooling2D(pool_size=(2,2), strides=(2, 2)))
-#
-# model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'))
-# model.add(BatchNormalization(axis=1))
-# model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'))
-# model.add(BatchNormalization(axis=1))
-#
-# model.add(MaxPooling2D(pool_size=(2,2), strides=(2, 2)))
-# model.add(Conv2D(128, kernel_size=(3, 3), activation='relu', padding='same'))
-# model.add(BatchNormalization(axis=1))
-# model.add(Conv2D(256, kernel_size=(3, 3), activation='relu', padding='same'))
-# model.add(BatchNormalization(axis=1))
-#
-# # Add fully connected layer
-# model.add(Flatten())  # Making the eights from convL 1-dim
-# model.add(Dense(1000, activation='relu'))
-# model.add(Dropout(0.3))
-#
-# model.add(Dense(500, activation='relu'))
-# model.add(BatchNormalization(axis=1))
-# # Add output layer
-# model.add(Dropout(0.3))
-#
-# model.add(Dense(43, activation='softmax'))
-# model.add(Dropout(0.25))
-#
-# # Defining things..
-# model.compile(loss='categorical_crossentropy',
-#               optimizer='adam',
-#               metrics=['categorical_accuracy'])
-#
-# # Change verbose to see progress
-#
-# history = model.fit(s_image_array, s_labels, batch_size=40, epochs=10, verbose=1, validation_split=0.20)
-#
-# score = model.evaluate(test_image_array, test_labels, verbose=1)
-#
-#
-# print('Percentage of images recognized: %s' %score[1])
-# print('Energy function: %s' %score[0])
-#
-# plt.plot(history.history['categorical_accuracy'])
-# plt.plot(history.history['val_categorical_accuracy'])
-# plt.title('model accuracy')
-# plt.ylabel('accuracy')
-# plt.xlabel('epoch')
-# plt.legend(['train', 'validation'], loc='upper left')
-# plt.show()
+input_dim = (size, size, 3)
+import keras
+from keras.models import Sequential
+from keras.layers.core import Dense, Dropout, Activation, Flatten
+from keras.layers.convolutional import Conv2D
+from keras.layers.pooling import MaxPooling2D
+from keras.utils import np_utils
+from keras.layers.normalization import BatchNormalization
+from keras.preprocessing.image import ImageDataGenerator
+
+
+batch_size = 6
+epochs =1
+datagen = ImageDataGenerator(
+    featurewise_center=True,
+    featurewise_std_normalization=True)
+datagen.fit(s_image_array)
+
+model = Sequential()
+
+model.add(Conv2D(16, kernel_size=(5, 5), activation='relu', input_shape=input_dim, padding='same'))
+model.add(BatchNormalization(axis=1))
+model.add(Conv2D(32, kernel_size=(5, 5), activation='relu', padding='same'))
+model.add(BatchNormalization(axis=1))
+
+model.add(MaxPooling2D(pool_size=(2,2), strides=(2, 2)))
+
+model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'))
+model.add(BatchNormalization(axis=1))
+model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'))
+model.add(BatchNormalization(axis=1))
+
+model.add(MaxPooling2D(pool_size=(2,2), strides=(2, 2)))
+
+model.add(Conv2D(128, kernel_size=(3, 3), activation='relu', padding='same'))
+model.add(BatchNormalization(axis=1))
+model.add(Conv2D(128, kernel_size=(3, 3), activation='relu', padding='same'))
+model.add(MaxPooling2D(pool_size=(2,2), strides=(2, 2)))
+
+model.add(BatchNormalization(axis=1))
+
+# Add fully connected layer
+model.add(Flatten())  # Making the eights from convL 1-dim
+model.add(Dense(2048, activation='relu'))
+model.add(Dropout(0.3))
+model.add(BatchNormalization(axis=1))
+model.add(Dense(1024, activation='relu'))
+# Add output layer
+model.add(Dropout(0.3))
+#model.add(BatchNormalization(axis=1))
+
+
+
+model.add(Dense(43, activation='softmax'))
+
+model.compile(loss='categorical_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+# Change verbose to see progress
+
+history = model.fit(s_image_array, s_labels, batch_size=batch_size, epochs=epochs, verbose=2, validation_split=0.3)
+
+
+
+score_training = model.evaluate(s_image_array, s_labels, verbose=1)
+score = model.evaluate(test_image_array, test_labels, verbose=1)
+
+print('For the TRAINING SET:')
+print('Percentage of images recognized: %s' %score_training[1])
+print('Energy function: %s' %score_training[0])
+
+
+print('For the TEST SET:')
+print('Percentage of images recognized: %s' %score[1])
+print('Energy function: %s' %score[0])
+
+plt.plot(history.history['acc'])
+plt.plot(history.history['val_acc'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'validation'], loc='upper right')
+plt.show()
+
+
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['trainloss', 'vallos'], loc='upper left')
+plt.show()
 
 print('###################################################DONE#############################################')
